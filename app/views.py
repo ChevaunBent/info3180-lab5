@@ -16,6 +16,7 @@ from werkzeug.security import check_password_hash
 # Routing for your application.
 ###
 
+
 @app.route('/')
 def home():
     """Render website's home page."""
@@ -49,20 +50,46 @@ def login():
             # passed to the login_user() method below.
         if user is not None and check_password_hash(user.password, password):
             # get user id, load into session
-            login_user(user)
-            # remember to flash a message to the user
+            remember_me = False
+            if 'remember_me' in request.form:
+                remember_me = True
+            login_user(user, remember=remember_me)
+
             flash('Logged in successfully.', 'success')
-            return redirect(url_for("secure-page"))  # they should be redirected to a secure-page route instead
+
+            # remember to flash a message to the user
+            # they should be redirected to a secure-page route instead
+            return redirect(url_for("secure_page"))
         else:
             flash('Username or Password is incorrect.', 'danger')
+    flash_errors(form)
     return render_template("login.html", form=form)
-
 
 # user_loader callback. This callback is used to reload the user object from
 # the user ID stored in the session
+
+@app.route("/logout")
+@login_required
+def logout():
+    # Logout the user and end the session
+    logout_user()
+    flash('You have been logged out.', 'danger')
+    return redirect(url_for('home'))
+
+#Wasnt required but added to improve interaction
+def flash_errors(form):
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(u"Error in the %s field - %s" % (
+                getattr(form, field).label.text,
+                error
+            ), 'danger')
+
 @login_manager.user_loader
 def load_user(id):
     return UserProfile.query.get(int(id))
+
+
 
 ###
 # The functions below should be applicable to all Flask apps.
@@ -74,6 +101,13 @@ def send_text_file(file_name):
     """Send your static text file."""
     file_dot_text = file_name + '.txt'
     return app.send_static_file(file_dot_text)
+
+
+@app.route('/secure-page')
+@login_required
+def secure_page():
+    """Render a secure page on our website that only logged in users can access."""
+    return render_template('secure_page.html')
 
 
 @app.after_request
